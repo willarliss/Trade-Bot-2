@@ -1,2 +1,3 @@
 # Trade-Bot-2
-Continuous stock trading environment for reinforcement learning
+
+This project tests a continuous stock trading environment for reinforcement learning.
