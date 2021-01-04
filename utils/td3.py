@@ -49,7 +49,7 @@ class Actor(nn.Module):
         self.pst = PositiveSoftmaxTanh()
 
     def forward(self, state):
-                
+                        
         X = F.relu(self.layer_1(state))
         X = F.relu(self.layer_2(X))
         X = self.pst(self.layer_3(X)) 
@@ -155,11 +155,11 @@ class Agent:
 
     def select_action(self, state):
 
-        state = torch.FloatTensor(state.reshape(-1,1)).to(DEVICE)
+        state = torch.FloatTensor(state.reshape(1,-1)).to(DEVICE)
         
         return (self.actor(state)
             .cpu()
-            .numpy()
+            .data.numpy()
             .flatten()
         )
     
