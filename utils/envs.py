@@ -85,28 +85,22 @@ class BaseTradingEnvironment(gym.Env):
             
     def step(self, action):
         
-        assert isinstance(action, dict)
-        assert len(action) == self.action_space.shape[0]
-        assert '_out' in action.keys()
+        if not isinstance(action, dict):
+            action = format_action(self.positions, action)
         
         self._take_action(action)
         self.current_step += 1
         
-        done = (
-            round(self.balance, 9) < 0
-            or self.current_step >= self.observations-1
-        )
-        
         obs = self._next_observation()
         
-        profit_agent = self.agent_portfolio.net_worth - self.agent_portfolio.balance_init
-        profit_long = self.long_portfolio.net_worth - self.long_portfolio.balance_init
-        reward = (profit_agent - profit_long) / self.balance_init
+        reward = (self.agent_portfolio.profits[-1] - self.long_portfolio.profits[-1]) / self.balance_init
+
+        done = (round(self.balance, 9) < 0) or (self.current_step >= self.observations-1)
         
         info = {}
         
-        return obs, reward, done, info        
-            
+        return obs, reward, done, info      
+    
     def reset(self):
         
         self.current_step = 1
@@ -167,14 +161,58 @@ class BaseTradingEnvironment(gym.Env):
         
         return dict(pq)        
 
+    
         
 class TradingEnv1(BaseTradingEnvironment):
+    
+    """Base environment with no modifications"""
     
     pass
     
     
-    
+
 class TradingEnv2(BaseTradingEnvironment):
+    
+    """Modified reward function is long-term profit instead of immediate profit"""
+    
+    def step(self, action):
+        
+        if not isinstance(action, dict):
+            action = format_action(self.positions, action)
+        
+        self._take_action(action)
+        self.current_step += 1
+        
+        obs = self._next_observation()
+
+        profit_agent = self.agent_portfolio.net_worth - self.agent_portfolio.balance_init
+        profit_long = self.long_portfolio.net_worth - self.long_portfolio.balance_init
+        reward = (profit_agent - profit_long) / self.balance_init
+
+        done = (
+            round(self.balance, 9) < 0
+            or self.current_step >= self.observations-1
+        )
+        
+        info = {}
+        
+        return obs, reward, done, info   
+    
+    
+    
+class TradingEnv3(BaseTradingEnvironment):
+    
+    """Modified observation space includes metadata about portfolio"""
+    
+    def __init__(self, *args, **kwargs):
+        
+        super(TradingEnv3, self).__init__(*args, **kwargs)
+        
+        self.observation_space = spaces.Box(
+            low=-np.inf, 
+            high=np.inf, 
+            shape=(len(self.stocks)+1, 8),
+        )
     
     def _next_observation(self):
         
@@ -189,9 +227,12 @@ class TradingEnv2(BaseTradingEnvironment):
             
             obs /= self.scalers[ticker]
             
+            obs.append(self.agent_portfolio.positions_norm[ticker])
+            
             full_observation.append(obs)
             
-        meta = None ###
+        meta = [0] * self.observaition_space.shape[1]
+        meta[0] = self.net_worth / self.balance_init
         full_observation.append(meta)
             
         return np.array(full_observation).reshape(self.observation_space.shape)
