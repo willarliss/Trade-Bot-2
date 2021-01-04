@@ -6,27 +6,31 @@ import torch.nn.functional as F
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-
+    
 class PositiveSoftmaxTanh(nn.Module):
     
     def __init__(self):
         
         super(PositiveSoftmaxTanh, self).__init__()
         
-    def forward(self, values):
+    def forward(self, values_full):
         
-        values = torch.tanh(values)
-        values_pos = values.clone()
+        values_full = torch.tanh(values_full)
+        values_pos_full = values_full.clone()
         
-        values_pos[values<0] = 0
+        for values_pos, values in zip(values_pos_full, values_full):
         
-        values_pos = torch.FloatTensor(
-            [val/torch.sum(values_pos) for val in values_pos]
-        )
-        
-        values_pos[values<0] = values[values<0]
-        
-        return values_pos
+            values_pos[values<0] = 0
+            values_pos[-1] = 0
+
+            values_pos = torch.FloatTensor(
+                [val/torch.sum(values_pos) for val in values_pos]
+            )
+
+            values_pos[values<0] = values[values<0]
+            values_pos[-1] = torch.abs(values[-1])
+
+        return values_pos_full
         
         
 
@@ -45,11 +49,10 @@ class Actor(nn.Module):
         self.pst = PositiveSoftmaxTanh()
 
     def forward(self, state):
-
+                
         X = F.relu(self.layer_1(state))
         X = F.relu(self.layer_2(X))
-        #X = self.pst(self.layer_3(X)) 
-        X = self.layer_3(X)
+        X = self.pst(self.layer_3(X)) 
         
         return X 
 
@@ -106,6 +109,9 @@ class ReplayBuffer:
 
         for i in idx:
             state, next_state, action, reward, done = self.storage[i]
+            
+            state = state.reshape(-1,1)
+            next_state = next_state.reshape(-1,1)
       
             batch_states.append(np.array(state, copy=False))
             batch_next_states.append(np.array(next_state, copy=False))
@@ -114,11 +120,11 @@ class ReplayBuffer:
             batch_dones.append(np.array(done, copy=False))
 
         return (
-            np.array(batch_states),
-            np.array(batch_next_states),
+            np.array(batch_states).squeeze(),
+            np.array(batch_next_states).squeeze(),
             np.array(batch_actions),
-            np.array(batch_rewards).reshape((-1,1)),
-            np.array(batch_dones).reshape((-1,1)), 
+            np.array(batch_rewards).reshape(-1,1),
+            np.array(batch_dones).reshape(-1,1), 
         )
     
     
@@ -149,11 +155,10 @@ class Agent:
 
     def select_action(self, state):
 
-        state = torch.FloatTensor(state.reshape(1,-1)).to(DEVICE)
-
+        state = torch.FloatTensor(state.reshape(-1,1)).to(DEVICE)
+        
         return (self.actor(state)
             .cpu()
-            .data
             .numpy()
             .flatten()
         )
