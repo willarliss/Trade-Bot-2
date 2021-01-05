@@ -16,6 +16,8 @@ class BaseTradingEnvironment(gym.Env):
     metadata = {'render.modes': ['human']}
     
     def __init__(self, stock_data, balance_init=1e6, fee=1e-3):
+        
+        super(BaseTradingEnvironment, self).__init__()
 
         self.fee = fee
         self.balance_init = balance_init
@@ -111,6 +113,7 @@ class BaseTradingEnvironment(gym.Env):
         self.balance = self.balance_init
         self.net_worth = [self.balance]
         self.net_worth_long = [self.balance]
+        self.shares_held = 0
         
         return self._next_observation()
         
@@ -185,6 +188,10 @@ class BaseTradingEnvironment(gym.Env):
             scalers_full[ticker] = scalers
             
         return scalers_full
+    
+    
+    
+###################################################################################################    
 
     
         
@@ -198,7 +205,7 @@ class TradingEnv1(BaseTradingEnvironment):
 
 class TradingEnv2(BaseTradingEnvironment):
     
-    """Modified reward function is long-term profit instead of immediate profit (BAD)"""
+    """Modified reward function is long-term profit instead of immediate profit. BAD"""
     
     def step(self, action):
         
@@ -227,7 +234,7 @@ class TradingEnv2(BaseTradingEnvironment):
     
 class TradingEnv3(BaseTradingEnvironment):
     
-    """Modified observation space includes metadata about portfolio"""
+    """Modified observation space includes metadata about portfolio. BAD"""
     
     def __init__(self, *args, **kwargs):
         
@@ -250,14 +257,14 @@ class TradingEnv3(BaseTradingEnvironment):
                 ['close', 'volume', 'ma_30', 'ma_5', 'volatil', 'diff', 'diff_ma_5'],
             ]
             
-            obs /= self.scalers[ticker]
+            obs = list(obs/self.scalers[ticker])
             
             obs.append(self.agent_portfolio.positions_norm[ticker])
             
             full_observation.append(obs)
             
-        meta = [0] * self.observaition_space.shape[1]
-        meta[0] = self.net_worth / self.balance_init
+        meta = [0] * self.observation_space.shape[1]
+        meta[0] = self.net_worth[-1] / self.balance_init
         meta[1] = 0
         
         full_observation.append(meta)
@@ -268,7 +275,46 @@ class TradingEnv3(BaseTradingEnvironment):
 
 class TradingEnv4(BaseTradingEnvironment):
     
-    """Modified reward function includes penalty for having no investments"""
+    """Modified reward function includes penalty for having no investments
+    and observation space includes meta data"""
+    
+    def __init__(self, *args, **kwargs):
+        
+        super(TradingEnv4, self).__init__(*args, **kwargs)
+        
+        self.observation_space = spaces.Box(
+            low=-np.inf, 
+            high=np.inf, 
+            shape=(len(self.stocks)+1, 8),
+        )
+    
+    def _next_observation(self):
+        
+        full_observation = []
+        
+        for ticker, df in self.stocks.items():
+            
+            obs = df.loc[
+                self.current_step,
+                ['close', 'volume', 'ma_30', 'ma_5', 'volatil', 'diff', 'diff_ma_5'],
+            ]
+            
+            obs = list(obs/self.scalers[ticker])
+            
+            obs.append(self.agent_portfolio.positions_norm[ticker])
+            
+            full_observation.append(obs)
+            
+        meta = [0] * self.observation_space.shape[1]
+        
+        meta[0] = (self.net_worth[-1] - self.balance_init) / self.balance_init
+        meta[1] = (self.net_worth[-1] - self.balance) / self.net_worth[-1]
+        meta[2] = self.balance / self.balance_init
+        meta[3] = np.log((self.net_worth[-1]-self.balance)/self.shares_held) if self.shares_held > 0 else 0
+        
+        full_observation.append(meta)
+            
+        return np.array(full_observation).reshape(self.observation_space.shape)
     
     def step(self, action):
         
@@ -278,16 +324,23 @@ class TradingEnv4(BaseTradingEnvironment):
         self._take_action(action)
         self.current_step += 1
         
+        # Observation
         obs = self._next_observation()
         
+        # Reward
         reward = (self.agent_portfolio.profits[-1] - self.long_portfolio.profits[-1]) / self.balance_init
-        reward -= abs(1.1*reward) if round(env.agent_portfolio.positions_norm['_out'], 9) >= (1 - 1e-9) else 0
 
+        exp, nw = 0.5, 0.1 # Exposure penalty and net worth penalty
+        reward += sum(-exp for i in self.agent_portfolio.positions_full.values() if round(i,9) == 0)
+        reward += nw if self.agent_portfolio.net_worth > self.long_portfolio.net_worth else -nw
+
+        # Done
         done = (round(self.balance, 9) < 0) or (self.current_step >= self.observations-1)
         
+        # Information
         info = {}
         
         return obs, reward, done, info 
     
-    
-    
+
+        

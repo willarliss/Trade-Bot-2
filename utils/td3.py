@@ -14,23 +14,17 @@ class PositiveSoftmaxTanh(nn.Module):
         super(PositiveSoftmaxTanh, self).__init__()
         
     def forward(self, values_full):
-        
-        values_full = torch.tanh(values_full)
-        values_pos_full = values_full.clone()
-        
-        for values_pos, values in zip(values_pos_full, values_full):
-        
-            values_pos[values<0] = 0
-            values_pos[-1] = 0
+                
+        for values in values_full:
+            
+            values[:-1] = torch.tanh(values[:-1])
+            values[-1] = torch.sigmoid(values[-1])
 
-            values_pos = torch.FloatTensor(
-                [val/torch.sum(values_pos) for val in values_pos]
+            values[:-1][values[:-1]>0] = (
+                values[:-1][values[:-1]>0] / torch.sum(values[:-1][values[:-1]>0])
             )
 
-            values_pos[values<0] = values[values<0]
-            values_pos[-1] = torch.abs(values[-1])
-
-        return values_pos_full
+        return values_full
         
         
 

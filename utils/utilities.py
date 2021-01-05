@@ -88,4 +88,4 @@ def validate_data(dataframes):
     assert len(set(lasts)) == 1, 'Ending dates of price histories do not match'
         
     
-        
+    
