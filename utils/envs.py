@@ -37,8 +37,8 @@ class BaseTradingEnvironment(gym.Env):
         
         self.positions = ( *[t for t in self.stocks.keys()], '_out', )
         self.observations = len(self.stocks[self.positions[0]])
-        self.scalers = {t: df.drop('date', axis=1).values[0] for t, df in self.stocks.items()}
-        
+        self.scalers = self._configure_scalers(self.stocks)
+            
         self.action_space = spaces.Box(
             low=np.array([ *[-1]*len(self.stocks), 0, ]),
             high=1.0,
@@ -51,7 +51,7 @@ class BaseTradingEnvironment(gym.Env):
             high=np.inf, 
             shape=(len(self.stocks), 7),
         )
-
+        
     def _next_observation(self):
         
         full_observation = []
@@ -157,9 +157,34 @@ class BaseTradingEnvironment(gym.Env):
     @staticmethod
     def format_action(positions, quantities):
         
+        assert hasattr(positions, '__iter__')
+        assert hasattr(quantities, '__iter__')
+        assert len(positions) == len(quantities)
+        
         pq = zip(positions, quantities)
         
-        return dict(pq)        
+        return dict(pq)   
+    
+    @staticmethod
+    def _configure_scalers(stocks):
+        
+        assert isinstance(stocks, dict)
+        assert all( [isinstance(value, pd.DataFrame) for value in stocks.values()] )
+        
+        scalers_full = {}
+        
+        for ticker, df in stocks.items():
+            
+            i = 0
+            scalers = df.drop('date', axis=1).values[i]
+            
+            while 0.0 in scalers:
+                i += 1
+                scalers[scalers==0] = df.drop('date', axis=1).values[i][scalers==0]
+            
+            scalers_full[ticker] = scalers
+            
+        return scalers_full
 
     
         
@@ -173,7 +198,7 @@ class TradingEnv1(BaseTradingEnvironment):
 
 class TradingEnv2(BaseTradingEnvironment):
     
-    """Modified reward function is long-term profit instead of immediate profit"""
+    """Modified reward function is long-term profit instead of immediate profit (BAD)"""
     
     def step(self, action):
         
@@ -233,9 +258,36 @@ class TradingEnv3(BaseTradingEnvironment):
             
         meta = [0] * self.observaition_space.shape[1]
         meta[0] = self.net_worth / self.balance_init
+        meta[1] = 0
+        
         full_observation.append(meta)
             
         return np.array(full_observation).reshape(self.observation_space.shape)
 
+    
 
+class TradingEnv4(BaseTradingEnvironment):
+    
+    """Modified reward function includes penalty for having no investments"""
+    
+    def step(self, action):
         
+        if not isinstance(action, dict):
+            action = format_action(self.positions, action)
+        
+        self._take_action(action)
+        self.current_step += 1
+        
+        obs = self._next_observation()
+        
+        reward = (self.agent_portfolio.profits[-1] - self.long_portfolio.profits[-1]) / self.balance_init
+        reward -= abs(1.1*reward) if round(env.agent_portfolio.positions_norm['_out'], 9) >= (1 - 1e-9) else 0
+
+        done = (round(self.balance, 9) < 0) or (self.current_step >= self.observations-1)
+        
+        info = {}
+        
+        return obs, reward, done, info 
+    
+    
+    

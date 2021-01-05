@@ -6,14 +6,14 @@ from IPython.display import clear_output
 
 
 
-def live_plot(data_dict, figsize=(15,5)):
+def live_plot(data_dict, figsize=(15,5), trace='net_worth'):
 
     clear_output(wait=True)
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot()
     
     for label, data in data_dict.items():
-        if 'reward' in label:
+        if trace in label:
             ax.plot(data, label=label)
     
     ax.legend(loc='lower left')
