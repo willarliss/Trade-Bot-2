@@ -62,17 +62,20 @@ def fetch_data(db_name):
 
 def validate_data(dataframes):
     
+    assert isinstance(dataframes, dict), 'Historical stock data must be dictionary instance'
+    
     lens, firsts, lasts = [], [], []
-    cols = {'date', 'close', 'volume', 'ma_30', 'ma_5', 'volatil', 'diff', 'diff_ma_5'}
+    cols = ('date', 'close', 'volume', 'ma_30', 'ma_5', 'volatil', 'diff', 'diff_ma_5', )
     
     for ticker, df in dataframes.items():
         
         assert isinstance(df, pd.DataFrame), 'Historical data must be dataframe(s)'
+        assert df.index.start == 0, 'Dataframe index must start at 0'
         
         df.columns = df.columns.str.lower()
         df.columns = df.columns.str.strip()
         
-        assert set(df.columns) == cols, f'Missing {cols-set(df.columns)} column(s)'
+        assert set(df.columns) == set(cols), f'Missing {set(cols)-set(df.columns)} column(s)'
         
         df['date'] = pd.to_datetime(df['date'])
         df.sort_values(by='date', ascending=True, inplace=True)
@@ -83,9 +86,11 @@ def validate_data(dataframes):
         
         assert df.isna().sum().sum() == 0, 'Missing values present in historical data'
         
-    assert len(set(lens)) == 1, 'Lengths of price histories do not match'    
-    assert len(set(firsts)) == 1, 'Starting dates of price histories do not match'
-    assert len(set(lasts)) == 1, 'Ending dates of price histories do not match'
+        df = df[[*cols]]
+        
+    assert len(set(lens)) == 1, 'Lengths of price histories must match'    
+    assert len(set(firsts)) == 1, 'Starting dates of price histories must match'
+    assert len(set(lasts)) == 1, 'Ending dates of price histories must match'
         
     
-    
+     

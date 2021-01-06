@@ -35,7 +35,7 @@ class BaseTradingEnvironment(gym.Env):
         )
     
         self.stocks = stock_data.copy()
-        validate_data(self.stocks)
+        self._validate_data(self.stocks)
         
         self.positions = ( *[t for t in self.stocks.keys()], '_out', )
         self.observations = len(self.stocks[self.positions[0]])
@@ -88,7 +88,7 @@ class BaseTradingEnvironment(gym.Env):
     def step(self, action):
         
         if not isinstance(action, dict):
-            action = format_action(self.positions, action)
+            action = self.format_action(self.positions, action)
         
         self._take_action(action)
         self.current_step += 1
@@ -169,6 +169,13 @@ class BaseTradingEnvironment(gym.Env):
         return dict(pq)   
     
     @staticmethod
+    def _validate_data(data):
+        
+        assert isinstance(data, dict)
+        
+        validate_data(data)
+    
+    @staticmethod
     def _configure_scalers(stocks):
         
         assert isinstance(stocks, dict)
@@ -210,7 +217,7 @@ class TradingEnv2(BaseTradingEnvironment):
     def step(self, action):
         
         if not isinstance(action, dict):
-            action = format_action(self.positions, action)
+            action = self.format_action(self.positions, action)
         
         self._take_action(action)
         self.current_step += 1
@@ -310,7 +317,7 @@ class TradingEnv4(BaseTradingEnvironment):
         meta[0] = (self.net_worth[-1] - self.balance_init) / self.balance_init
         meta[1] = (self.net_worth[-1] - self.balance) / self.net_worth[-1]
         meta[2] = self.balance / self.balance_init
-        meta[3] = np.log((self.net_worth[-1]-self.balance)/self.shares_held) if self.shares_held > 0 else 0
+        #meta[3] = np.log((self.net_worth[-1]-self.balance)/self.shares_held) if self.shares_held > 0 else 0
         
         full_observation.append(meta)
             
@@ -319,7 +326,7 @@ class TradingEnv4(BaseTradingEnvironment):
     def step(self, action):
         
         if not isinstance(action, dict):
-            action = format_action(self.positions, action)
+            action = self.format_action(self.positions, action)
         
         self._take_action(action)
         self.current_step += 1
@@ -343,4 +350,34 @@ class TradingEnv4(BaseTradingEnvironment):
         return obs, reward, done, info 
     
 
+
+class TradingEnv5(TradingEnv4):
+    
+    """Modified reward function includes penalty for having no investments
+    and observation space includes meta data"""
+    
+    def step(self, action):
+        
+        if not isinstance(action, dict):
+            action = self.format_action(self.positions, action)
+        
+        self._take_action(action)
+        self.current_step += 1
+        
+        # Observation
+        obs = self._next_observation()
+        
+        # Reward
+        reward = (self.agent_portfolio.profits[-1] - self.long_portfolio.profits[-1]) / self.long_portfolio.profits[-1]
+        reward -= sum(1.0 for i in self.agent_portfolio.positions_full.values() if round(i,9) == 0)
+
+        # Done
+        done = (round(self.balance, 9) < 0) or (self.current_step >= self.observations-1)
+        
+        # Information
+        info = {}
+        
+        return obs, reward, done, info 
+    
+    
         
