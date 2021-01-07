@@ -354,7 +354,7 @@ class TradingEnv4(BaseTradingEnvironment):
 class TradingEnv5(TradingEnv4):
     
     """Modified reward function includes penalty for having no investments
-    and observation space includes meta data"""
+    and observation space includes meta data. Reward function improved from 4"""
     
     def step(self, action):
         
@@ -368,7 +368,7 @@ class TradingEnv5(TradingEnv4):
         obs = self._next_observation()
         
         # Reward
-        reward = (self.agent_portfolio.profits[-1] - self.long_portfolio.profits[-1]) / self.long_portfolio.profits[-1]
+        reward = (self.agent_portfolio.profits[-1] - self.long_portfolio.profits[-1]) / abs(self.long_portfolio.profits[-1])
         reward -= sum(1.0 for i in self.agent_portfolio.positions_full.values() if round(i,9) == 0)
 
         # Done
@@ -379,5 +379,5 @@ class TradingEnv5(TradingEnv4):
         
         return obs, reward, done, info 
     
+  
     
-        
