@@ -243,4 +243,94 @@ class Agent:
         self.critic_2.load_state_dict(torch.load(f'{directory}/{filename}_critic_2.pth'))
 
 
+        
+###################################################################################################        
           
+    
+    
+class ActorDropout(nn.Module):
+
+    def __init__(self, state_dim, action_dim):
+    
+        super(ActorDropout, self).__init__()
+        
+        h1, h2 = 400, 300
+        prob = 0.2
+        
+        self.layer_1 = nn.Linear(state_dim, h1) 
+        self.dropout_1 = nn.Dropout(prob)
+        self.layer_2 = nn.Linear(h1, h2) 
+        self.dropout_2 = nn.Dropout(prob)
+        self.layer_3 = nn.Linear(h2, action_dim)
+
+        self.pst = PositiveSoftmaxTanh()
+
+    def forward(self, state):
+                        
+        X = F.relu(self.layer_1(state))
+        X = self.dropout_1(X)
+        X = F.relu(self.layer_2(X))
+        X = self.dropout_2(X)
+        X = self.pst(self.layer_3(X)) 
+        
+        return X 
+
+
+
+class CriticDropout(nn.Module):
+
+    def __init__(self, state_dim, action_dim):
+
+        super(CriticDropout, self).__init__()
+        
+        h1, h2 = 400, 300
+        prob = 0.2
+        
+        self.layer_1 = nn.Linear(state_dim + action_dim, h1)
+        self.dropout_1 = nn.Dropout(prob)
+        self.layer_2 = nn.Linear(h1, h2)
+        self.dropout_2 = nn.Dropout(prob)
+        self.layer_3 = nn.Linear(h2, 1)
+
+    def forward(self, state, action):
+
+        Xu = torch.cat([state, action], axis=1)
+
+        X = F.relu(self.layer_1(Xu))
+        X = self.dropout_1(X)
+        X = F.relu(self.layer_2(X))
+        X = self.dropout_2(X)
+        X = self.layer_3(X)
+
+        return X
+    
+    
+    
+class RobustAgent(Agent):
+    
+    def __init__(self, state_dim, action_dim, max_action, mem_size=1e6, eta=1e-3):
+        
+        super(RobustAgent, self).__init__(
+            state_dim, action_dim, max_action, mem_size, eta,
+        )
+        
+        self.actor = ActorDropout(state_dim, action_dim).to(DEVICE)
+        self.actor_target = ActorDropout(state_dim, action_dim).to(DEVICE)
+        self.actor_target.load_state_dict(self.actor.state_dict())
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=eta)
+
+        self.critic_1 = CriticDropout(state_dim, action_dim).to(DEVICE)
+        self.critic_1_target = CriticDropout(state_dim, action_dim).to(DEVICE)
+        self.critic_1_target.load_state_dict(self.critic_1.state_dict())
+        self.critic_1_optimizer = torch.optim.Adam(self.critic_1.parameters(), lr=eta)
+
+        self.critic_2 = CriticDropout(state_dim, action_dim).to(DEVICE)
+        self.critic_2_target = CriticDropout(state_dim, action_dim).to(DEVICE)
+        self.critic_2_target.load_state_dict(self.critic_2.state_dict())
+        self.critic_2_optimizer = torch.optim.Adam(self.critic_2.parameters(), lr=eta)
+        
+    
+    
+    
+    
+    
