@@ -25,9 +25,9 @@ class PositiveSoftmaxTanh(nn.Module):
             )
 
         return values_full
+    
+    
         
-        
-
 class Actor(nn.Module):
 
     def __init__(self, state_dim, action_dim):
@@ -43,7 +43,7 @@ class Actor(nn.Module):
         self.pst = PositiveSoftmaxTanh()
 
     def forward(self, state):
-                        
+        
         X = F.relu(self.layer_1(state))
         X = F.relu(self.layer_2(X))
         X = self.pst(self.layer_3(X)) 
@@ -66,9 +66,9 @@ class Critic(nn.Module):
 
     def forward(self, state, action):
 
-        Xu = torch.cat([state, action], axis=1)
+        state_action = torch.cat([state, action], axis=1)
 
-        X = F.relu(self.layer_1(Xu))
+        X = F.relu(self.layer_1(state_action))
         X = F.relu(self.layer_2(X))
         X = self.layer_3(X)
 
@@ -245,6 +245,7 @@ class Agent:
 
         
 ###################################################################################################        
+### Dropout
           
     
     
@@ -255,7 +256,7 @@ class ActorDropout(nn.Module):
         super(ActorDropout, self).__init__()
         
         h1, h2 = 400, 300
-        prob = 0.2
+        prob = 0.01
         
         self.layer_1 = nn.Linear(state_dim, h1) 
         self.dropout_1 = nn.Dropout(prob)
@@ -267,7 +268,7 @@ class ActorDropout(nn.Module):
 
     def forward(self, state):
                         
-        X = F.relu(self.layer_1(state))
+        X = F.relu(self.layer_1(X))
         X = self.dropout_1(X)
         X = F.relu(self.layer_2(X))
         X = self.dropout_2(X)
@@ -284,7 +285,7 @@ class CriticDropout(nn.Module):
         super(CriticDropout, self).__init__()
         
         h1, h2 = 400, 300
-        prob = 0.2
+        prob = 0.01
         
         self.layer_1 = nn.Linear(state_dim + action_dim, h1)
         self.dropout_1 = nn.Dropout(prob)
@@ -294,9 +295,9 @@ class CriticDropout(nn.Module):
 
     def forward(self, state, action):
 
-        Xu = torch.cat([state, action], axis=1)
+        state_action = torch.cat([state, action], axis=1)
 
-        X = F.relu(self.layer_1(Xu))
+        X = F.relu(self.layer_1(X))
         X = self.dropout_1(X)
         X = F.relu(self.layer_2(X))
         X = self.dropout_2(X)
@@ -328,9 +329,188 @@ class RobustAgent(Agent):
         self.critic_2_target = CriticDropout(state_dim, action_dim).to(DEVICE)
         self.critic_2_target.load_state_dict(self.critic_2.state_dict())
         self.critic_2_optimizer = torch.optim.Adam(self.critic_2.parameters(), lr=eta)
+
         
+        
+###################################################################################################        
+### Deep
+        
+        
+                
+class DActor(nn.Module):
+
+    def __init__(self, state_dim, action_dim):
+    
+        super(DActor, self).__init__()
+        
+        h1, h2, h3 = 350, 250, 150
+        
+        self.layer_1 = nn.Linear(state_dim, h1) 
+        self.layer_2 = nn.Linear(h1, h2)
+        self.layer_3 = nn.Linear(h2, h3)
+        self.layer_4 = nn.Linear(h3, action_dim)
+
+        self.pst = PositiveSoftmaxTanh()
+
+    def forward(self, state):
+        
+        X = F.relu(self.layer_1(state))
+        X = F.relu(self.layer_2(X))
+        X = F.relu(self.layer_3(X))
+        
+        X = self.pst(self.layer_4(X)) 
+        
+        return X 
+
+
+
+class DCritic(nn.Module):
+
+    def __init__(self, state_dim, action_dim):
+
+        super(DCritic, self).__init__()
+        
+        h1, h2, h3 = 350, 250, 150
+
+        self.layer_1 = nn.Linear(state_dim + action_dim, h1)
+        self.layer_2 = nn.Linear(h1, h2)
+        self.layer_3 = nn.Linear(h2, h3)
+        self.layer_4 = nn.Linear(h3, 1)
+
+    def forward(self, state, action):
+
+        state_action = torch.cat([state, action], axis=1)
+        
+        X = F.relu(self.layer_1(state_action))
+        X = F.relu(self.layer_2(X))
+        X = F.relu(self.layer_3(X))
+        
+        X = self.layer_4(X)
+
+        return X
     
     
     
+class DeepAgent(Agent):
+    
+    def __init__(self, state_dim, action_dim, max_action, mem_size=1e6, eta=1e-3):
+        
+        super(DeepAgent, self).__init__(
+            state_dim, action_dim, max_action, mem_size, eta,
+        )
+        
+        self.actor = DActor(state_dim, action_dim).to(DEVICE)
+        self.actor_target = DActor(state_dim, action_dim).to(DEVICE)
+        self.actor_target.load_state_dict(self.actor.state_dict())
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=eta)
+
+        self.critic_1 = DCritic(state_dim, action_dim).to(DEVICE)
+        self.critic_1_target = DCritic(state_dim, action_dim).to(DEVICE)
+        self.critic_1_target.load_state_dict(self.critic_1.state_dict())
+        self.critic_1_optimizer = torch.optim.Adam(self.critic_1.parameters(), lr=eta)
+
+        self.critic_2 = DCritic(state_dim, action_dim).to(DEVICE)
+        self.critic_2_target = DCritic(state_dim, action_dim).to(DEVICE)
+        self.critic_2_target.load_state_dict(self.critic_2.state_dict())
+        self.critic_2_optimizer = torch.optim.Adam(self.critic_2.parameters(), lr=eta)    
     
     
+
+###################################################################################################    
+### Deep Dropout
+        
+        
+                
+class DActorDropout(nn.Module):
+
+    def __init__(self, state_dim, action_dim):
+    
+        super(DActorDropout, self).__init__()
+        
+        h1, h2, h3 = 350, 250, 150
+        prob = 0.01
+        
+        self.layer_1 = nn.Linear(state_dim, h1) 
+        self.dropout_1 = nn.Dropout(prob)
+        self.layer_2 = nn.Linear(h1, h2)
+        self.dropout_2 = nn.Dropout(prob)
+        self.layer_3 = nn.Linear(h2, h3)
+        self.dropout_3 = nn.Dropout(prob)
+        self.layer_4 = nn.Linear(h3, action_dim)
+
+        self.pst = PositiveSoftmaxTanh()
+
+    def forward(self, state):
+        
+        X = F.relu(self.layer_1(state))
+        X = self.dropout_1(X)
+        X = F.relu(self.layer_2(X))
+        X = self.dropout_2(X)
+        X = F.relu(self.layer_3(X))
+        X = self.dropout_3(X)
+        
+        X = self.pst(self.layer_4(X)) 
+        
+        return X 
+
+
+
+class DCriticDropout(nn.Module):
+
+    def __init__(self, state_dim, action_dim):
+
+        super(DCriticDropout, self).__init__()
+        
+        h1, h2, h3 = 350, 250, 150
+        prob = 0.01
+        
+        self.layer_1 = nn.Linear(state_dim + action_dim, h1)
+        self.dropout_1 = nn.Dropout(prob)
+        self.layer_2 = nn.Linear(h1, h2)
+        self.dropout_2 = nn.Dropout(prob)
+        self.layer_3 = nn.Linear(h2, h3)
+        self.dropout_3 = nn.Dropout(prob)
+        self.layer_4 = nn.Linear(h3, 1)
+
+    def forward(self, state, action):
+
+        state_action = torch.cat([state, action], axis=1)
+        
+        X = F.relu(self.layer_1(state_action))
+        X = self.dropout_1(X)
+        X = F.relu(self.layer_2(X))
+        X = self.dropout_2(X)
+        X = F.relu(self.layer_3(X))
+        X = self.dropout_3(X)
+        
+        X = self.layer_4(X)
+
+        return X
+    
+    
+    
+class RobustDeepAgent(Agent):
+    
+    def __init__(self, state_dim, action_dim, max_action, mem_size=1e6, eta=1e-3):
+        
+        super(DeepAgent, self).__init__(
+            state_dim, action_dim, max_action, mem_size, eta,
+        )
+        
+        self.actor = DActorDropout(state_dim, action_dim).to(DEVICE)
+        self.actor_target = DActorDropout(state_dim, action_dim).to(DEVICE)
+        self.actor_target.load_state_dict(self.actor.state_dict())
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=eta)
+
+        self.critic_1 = DCriticDropout(state_dim, action_dim).to(DEVICE)
+        self.critic_1_target = DCriticDropout(state_dim, action_dim).to(DEVICE)
+        self.critic_1_target.load_state_dict(self.critic_1.state_dict())
+        self.critic_1_optimizer = torch.optim.Adam(self.critic_1.parameters(), lr=eta)
+
+        self.critic_2 = DCriticDropout(state_dim, action_dim).to(DEVICE)
+        self.critic_2_target = DCriticDropout(state_dim, action_dim).to(DEVICE)
+        self.critic_2_target.load_state_dict(self.critic_2.state_dict())
+        self.critic_2_optimizer = torch.optim.Adam(self.critic_2.parameters(), lr=eta)    
+    
+    
+          
