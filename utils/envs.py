@@ -498,3 +498,142 @@ class TradingEnv7(BaseTradingEnvironment):
         
         return obs, reward, done, info 
          
+        
+        
+class TradingEnv8(TradingEnv7):
+    
+    """Improved reward from env 7"""
+    
+    def step(self, action):
+        
+        if not isinstance(action, dict):
+            action = self.format_action(self.positions, action)
+        
+        self._take_action(action)
+        self.current_step += 1
+        
+        # Observation
+        obs = self._next_observation()
+        
+        # Reward        
+        reward = self._reward_fn()
+
+        # Done
+        done = (round(self.balance, 9) < 0) or (self.current_step >= self.n_obs-1)
+        
+        # Information
+        info = {}
+        
+        return obs, reward, done, info 
+    
+    def _reward_fn(self):
+        
+        penalty = (1 / np.sqrt(self.n_stocks+1)) + 1
+
+        return (
+            + ( (self.agent_portfolio.profits[-1] - self.long_portfolio.profits[-1]) / abs(self.long_portfolio.profits[-1]) )
+            + ( (self.agent_portfolio.net_worth - self.long_portfolio.net_worth) / abs(self.long_portfolio.net_worth) )
+            + sum( -penalty for i in self.agent_portfolio.positions_full.values() if i < 1 )
+        )
+         
+        
+class TradingEnv9(BaseTradingEnvironment):
+    
+    """Fixed scalers"""
+    
+    def __init__(self, *args, **kwargs):
+        
+        super(TradingEnv9, self).__init__(*args, **kwargs)
+        
+        self.observation_space = spaces.Box(
+            low=-np.inf, 
+            high=np.inf, 
+            shape=(self.n_stocks+1, 9),
+        )
+    
+    def _next_observation(self):
+        
+        full_observation = []
+        
+        for ticker, df in self.stocks.items():
+            
+            obs = df.loc[
+                self.current_step,
+                ['close', 'volume', 'ma_30', 'ma_5', 'volatil', 'diff', 'diff_ma_5'],
+            ]
+                     
+            # Calculate price per share
+            if self.agent_portfolio.positions_full[ticker] >= 1:
+                pps = (
+                    (self.net_worth[-1] - self.balance)
+                    * self.agent_portfolio.positions_norm[ticker]
+                    ) / self.agent_portfolio.positions_full[ticker]
+                pps = np.log(pps) if pps != 0 else 0
+            else:
+                pps = 0
+                
+            # Re-calculate scalers
+            self.scalers[ticker][:] = [
+                max(self.scalers[ticker][i], obs.values[i], )  
+                for i in np.arange(len(self.scalers[ticker]))
+            ]
+            
+            obs = list(obs/self.scalers[ticker])
+            obs.append(self.agent_portfolio.positions_norm[ticker])
+            obs.append(pps)
+            
+            full_observation.append(obs)
+            
+        meta = [0] * self.observation_space.shape[1]
+    
+        # Calculate price per all shares
+        if self.shares_held >= 1:
+            pps = (self.net_worth[-1] - self.balance) / self.shares_held
+            pps = np.log(pps) if pps != 0 else 0
+        else:
+            pps = 0
+        
+        meta[0] = (self.net_worth[-1] - self.balance_init) / self.balance_init # Profit
+        meta[1] = (self.net_worth[-1] - self.balance) / self.balance_init # Invested
+        meta[2] = self.net_worth[-1] / self.balance_init # Net worth
+        meta[3] = self.balance / self.balance_init # Liquid
+        meta[4] = pps  # Price per shares
+        
+        full_observation.append(meta)
+            
+        return np.array(full_observation).reshape(self.observation_space.shape) 
+
+    def _reward_fn(self):
+        
+        penalty = (1 / np.sqrt(self.n_stocks+1)) + 1
+
+        return (
+            + ( (self.agent_portfolio.profits[-1] - self.long_portfolio.profits[-1]) / abs(self.long_portfolio.profits[-1]) )
+            + ( (self.agent_portfolio.net_worth - self.long_portfolio.net_worth) / abs(self.long_portfolio.net_worth) )
+            + sum( -penalty for i in self.agent_portfolio.positions_full.values() if i < 1 )
+        )
+
+    def step(self, action):
+        
+        if not isinstance(action, dict):
+            action = self.format_action(self.positions, action)
+        
+        self._take_action(action)
+        self.current_step += 1
+        
+        # Observation
+        obs = self._next_observation()
+        
+        # Reward        
+        reward = self._reward_fn()
+
+        # Done
+        done = (round(self.balance, 9) < 0) or (self.current_step >= self.n_obs-1)
+        
+        # Information
+        info = {}
+        
+        return obs, reward, done, info 
+    
+         
+    

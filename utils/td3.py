@@ -268,7 +268,7 @@ class ActorDropout(nn.Module):
 
     def forward(self, state):
                         
-        X = F.relu(self.layer_1(X))
+        X = F.relu(self.layer_1(state))
         X = self.dropout_1(X)
         X = F.relu(self.layer_2(X))
         X = self.dropout_2(X)
@@ -297,7 +297,7 @@ class CriticDropout(nn.Module):
 
         state_action = torch.cat([state, action], axis=1)
 
-        X = F.relu(self.layer_1(X))
+        X = F.relu(self.layer_1(state_action))
         X = self.dropout_1(X)
         X = F.relu(self.layer_2(X))
         X = self.dropout_2(X)
@@ -493,7 +493,7 @@ class RobustDeepAgent(Agent):
     
     def __init__(self, state_dim, action_dim, max_action, mem_size=1e6, eta=1e-3):
         
-        super(DeepAgent, self).__init__(
+        super(RobustDeepAgent, self).__init__(
             state_dim, action_dim, max_action, mem_size, eta,
         )
         
