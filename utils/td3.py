@@ -343,7 +343,7 @@ class DActor(nn.Module):
     
         super(DActor, self).__init__()
         
-        h1, h2, h3 = 350, 250, 150
+        h1, h2, h3 = 500, 300, 100
         
         self.layer_1 = nn.Linear(state_dim, h1) 
         self.layer_2 = nn.Linear(h1, h2)
@@ -370,7 +370,7 @@ class DCritic(nn.Module):
 
         super(DCritic, self).__init__()
         
-        h1, h2, h3 = 350, 250, 150
+        h1, h2, h3 = 500, 300, 100
 
         self.layer_1 = nn.Linear(state_dim + action_dim, h1)
         self.layer_2 = nn.Linear(h1, h2)
