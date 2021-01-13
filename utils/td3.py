@@ -125,22 +125,22 @@ class ReplayBuffer:
     
 class Agent:
 
-    def __init__(self, state_dim, action_dim, max_action, mem_size=1e6, eta=1e-3):
+    def __init__(self, state_dim, action_dim, max_action, mem_size=1e6, eta=1e-3, alpha=0.0):
         
         self.actor = Actor(state_dim, action_dim).to(DEVICE)
         self.actor_target = Actor(state_dim, action_dim).to(DEVICE)
         self.actor_target.load_state_dict(self.actor.state_dict())
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=eta)
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=eta, weight_decay=alpha)
 
         self.critic_1 = Critic(state_dim, action_dim).to(DEVICE)
         self.critic_1_target = Critic(state_dim, action_dim).to(DEVICE)
         self.critic_1_target.load_state_dict(self.critic_1.state_dict())
-        self.critic_1_optimizer = torch.optim.Adam(self.critic_1.parameters(), lr=eta)
+        self.critic_1_optimizer = torch.optim.Adam(self.critic_1.parameters(), lr=eta, weight_decay=alpha)
 
         self.critic_2 = Critic(state_dim, action_dim).to(DEVICE)
         self.critic_2_target = Critic(state_dim, action_dim).to(DEVICE)
         self.critic_2_target.load_state_dict(self.critic_2.state_dict())
-        self.critic_2_optimizer = torch.optim.Adam(self.critic_2.parameters(), lr=eta)
+        self.critic_2_optimizer = torch.optim.Adam(self.critic_2.parameters(), lr=eta, weight_decay=alpha)
 
         self.max_action = max_action
         
@@ -307,7 +307,7 @@ class CriticDropout(nn.Module):
     
     
     
-class RobustAgent(Agent):
+class DropoutAgent(Agent):
     
     def __init__(self, state_dim, action_dim, max_action, mem_size=1e6, eta=1e-3):
         
@@ -318,17 +318,17 @@ class RobustAgent(Agent):
         self.actor = ActorDropout(state_dim, action_dim).to(DEVICE)
         self.actor_target = ActorDropout(state_dim, action_dim).to(DEVICE)
         self.actor_target.load_state_dict(self.actor.state_dict())
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=eta)
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=eta, weight_decay=alpha)
 
         self.critic_1 = CriticDropout(state_dim, action_dim).to(DEVICE)
         self.critic_1_target = CriticDropout(state_dim, action_dim).to(DEVICE)
         self.critic_1_target.load_state_dict(self.critic_1.state_dict())
-        self.critic_1_optimizer = torch.optim.Adam(self.critic_1.parameters(), lr=eta)
+        self.critic_1_optimizer = torch.optim.Adam(self.critic_1.parameters(), lr=eta, weight_decay=alpha)
 
         self.critic_2 = CriticDropout(state_dim, action_dim).to(DEVICE)
         self.critic_2_target = CriticDropout(state_dim, action_dim).to(DEVICE)
         self.critic_2_target.load_state_dict(self.critic_2.state_dict())
-        self.critic_2_optimizer = torch.optim.Adam(self.critic_2.parameters(), lr=eta)
+        self.critic_2_optimizer = torch.optim.Adam(self.critic_2.parameters(), lr=eta, weight_decay=alpha)
 
         
         
@@ -402,17 +402,17 @@ class DeepAgent(Agent):
         self.actor = DActor(state_dim, action_dim).to(DEVICE)
         self.actor_target = DActor(state_dim, action_dim).to(DEVICE)
         self.actor_target.load_state_dict(self.actor.state_dict())
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=eta)
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=eta, weight_decay=alpha)
 
         self.critic_1 = DCritic(state_dim, action_dim).to(DEVICE)
         self.critic_1_target = DCritic(state_dim, action_dim).to(DEVICE)
         self.critic_1_target.load_state_dict(self.critic_1.state_dict())
-        self.critic_1_optimizer = torch.optim.Adam(self.critic_1.parameters(), lr=eta)
+        self.critic_1_optimizer = torch.optim.Adam(self.critic_1.parameters(), lr=eta, weight_decay=alpha)
 
         self.critic_2 = DCritic(state_dim, action_dim).to(DEVICE)
         self.critic_2_target = DCritic(state_dim, action_dim).to(DEVICE)
         self.critic_2_target.load_state_dict(self.critic_2.state_dict())
-        self.critic_2_optimizer = torch.optim.Adam(self.critic_2.parameters(), lr=eta)    
+        self.critic_2_optimizer = torch.optim.Adam(self.critic_2.parameters(), lr=eta, weight_decay=alpha)    
     
     
 
@@ -489,7 +489,7 @@ class DCriticDropout(nn.Module):
     
     
     
-class RobustDeepAgent(Agent):
+class DeepDropoutAgent(Agent):
     
     def __init__(self, state_dim, action_dim, max_action, mem_size=1e6, eta=1e-3):
         
@@ -500,17 +500,17 @@ class RobustDeepAgent(Agent):
         self.actor = DActorDropout(state_dim, action_dim).to(DEVICE)
         self.actor_target = DActorDropout(state_dim, action_dim).to(DEVICE)
         self.actor_target.load_state_dict(self.actor.state_dict())
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=eta)
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=eta, weight_decay=alpha)
 
         self.critic_1 = DCriticDropout(state_dim, action_dim).to(DEVICE)
         self.critic_1_target = DCriticDropout(state_dim, action_dim).to(DEVICE)
         self.critic_1_target.load_state_dict(self.critic_1.state_dict())
-        self.critic_1_optimizer = torch.optim.Adam(self.critic_1.parameters(), lr=eta)
+        self.critic_1_optimizer = torch.optim.Adam(self.critic_1.parameters(), lr=eta, weight_decay=alpha)
 
         self.critic_2 = DCriticDropout(state_dim, action_dim).to(DEVICE)
         self.critic_2_target = DCriticDropout(state_dim, action_dim).to(DEVICE)
         self.critic_2_target.load_state_dict(self.critic_2.state_dict())
-        self.critic_2_optimizer = torch.optim.Adam(self.critic_2.parameters(), lr=eta)    
+        self.critic_2_optimizer = torch.optim.Adam(self.critic_2.parameters(), lr=eta, weight_decay=alpha)    
     
-    
-          
+
+     

@@ -30,10 +30,14 @@ class Network(nn.Module):
     
 class Predictor:
     
-    def __init__(self, input_dim, output_dim, eta=0.01):
+    def __init__(self, input_dim, output_dim, eta=1e-3, alpha=0.0):
                 
         self.model = Network(input_dim, output_dim)
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=eta)
+        self.optimizer = torch.optim.Adam(
+            self.model.parameters(), 
+            lr=eta,
+            weight_decay=alpha,
+        )
         
         self.X_full = []
         self.y_full = []
@@ -42,9 +46,9 @@ class Predictor:
         
         self.X_full.append(X)
         self.y_full.append(y)
-
-    def train(self, epochs=10, batch_size=100):
         
+    def sample(self, batch_size=100):
+
         idx = np.random.randint(0, len(self.X_full), size=batch_size)
         
         X, y = [], []
@@ -52,6 +56,12 @@ class Predictor:
             X.append(self.X_full[i][:-1, :-2].flatten().copy())
             y.append(self.y_full[i][:-1, 5].copy())
 
+        return X, y
+
+    def train(self, epochs=10, batch_size=100):
+        
+        X, y = self.sample(batch_size)
+        
         X = torch.stack([torch.FloatTensor(x_) for x_ in X])
         y = torch.stack([torch.FloatTensor(y_) for y_ in y])
             

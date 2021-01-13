@@ -185,7 +185,6 @@ class BaseTradingEnvironment(gym.Env):
         scalers_full = {}
         
         for ticker, df in stocks.items():
-            
             i = 0
             scalers = df.drop('date', axis=1).values[i]
             
@@ -537,9 +536,10 @@ class TradingEnv8(TradingEnv7):
         )
          
         
+        
 class TradingEnv9(BaseTradingEnvironment):
     
-    """Fixed scalers"""
+    """Modified reward function and observation space. Fixed scalers"""
     
     def __init__(self, *args, **kwargs):
         
@@ -562,16 +562,6 @@ class TradingEnv9(BaseTradingEnvironment):
                 ['close', 'volume', 'ma_30', 'ma_5', 'volatil', 'diff', 'diff_ma_5'],
             ]
                      
-            # Calculate price per share
-            if self.agent_portfolio.positions_full[ticker] >= 1:
-                pps = (
-                    (self.net_worth[-1] - self.balance)
-                    * self.agent_portfolio.positions_norm[ticker]
-                    ) / self.agent_portfolio.positions_full[ticker]
-                pps = np.log(pps) if pps != 0 else 0
-            else:
-                pps = 0
-                
             # Re-calculate scalers
             self.scalers[ticker][:] = [
                 max(self.scalers[ticker][i], obs.values[i], )  
@@ -579,40 +569,29 @@ class TradingEnv9(BaseTradingEnvironment):
             ]
             
             obs = list(obs/self.scalers[ticker])
+            
             obs.append(self.agent_portfolio.positions_norm[ticker])
-            obs.append(pps)
+            obs.append(self._price_per_share(
+                self.net_worth[-1], 
+                self.balance, 
+                self.agent_portfolio.positions_full[ticker], 
+                self.agent_portfolio.positions_norm[ticker],
+            ))
             
             full_observation.append(obs)
             
         meta = [0] * self.observation_space.shape[1]
     
-        # Calculate price per all shares
-        if self.shares_held >= 1:
-            pps = (self.net_worth[-1] - self.balance) / self.shares_held
-            pps = np.log(pps) if pps != 0 else 0
-        else:
-            pps = 0
-        
         meta[0] = (self.net_worth[-1] - self.balance_init) / self.balance_init # Profit
         meta[1] = (self.net_worth[-1] - self.balance) / self.balance_init # Invested
         meta[2] = self.net_worth[-1] / self.balance_init # Net worth
         meta[3] = self.balance / self.balance_init # Liquid
-        meta[4] = pps  # Price per shares
+        meta[4] = self._price_per_share(self.net_worth[-1], self.balance, self.shares_held, 1.0) # Price per shares
         
         full_observation.append(meta)
             
         return np.array(full_observation).reshape(self.observation_space.shape) 
-
-    def _reward_fn(self):
-        
-        penalty = (1 / np.sqrt(self.n_stocks+1)) + 1
-
-        return (
-            + ( (self.agent_portfolio.profits[-1] - self.long_portfolio.profits[-1]) / abs(self.long_portfolio.profits[-1]) )
-            + ( (self.agent_portfolio.net_worth - self.long_portfolio.net_worth) / abs(self.long_portfolio.net_worth) )
-            + sum( -penalty for i in self.agent_portfolio.positions_full.values() if i < 1 )
-        )
-
+    
     def step(self, action):
         
         if not isinstance(action, dict):
@@ -634,6 +613,30 @@ class TradingEnv9(BaseTradingEnvironment):
         info = {}
         
         return obs, reward, done, info 
+
+    def _reward_fn(self):
+        
+        penalty = (1 / np.sqrt(self.n_stocks+1)) + 1
+
+        return (
+            + ( (self.agent_portfolio.profits[-1] - self.long_portfolio.profits[-1]) / abs(self.long_portfolio.profits[-1]) )
+            + ( (self.agent_portfolio.net_worth - self.long_portfolio.net_worth) / abs(self.long_portfolio.net_worth) )
+            + sum( -penalty for i in self.agent_portfolio.positions_full.values() if i < 1 )
+        )
+
+    @staticmethod
+    def _price_per_share(net_worth, balance, shares, portion):
+        
+        if shares >= 1:
+            pps = (
+                (net_worth - balance) * portion
+                ) / shares
+            pps = np.log(pps) if pps != 0 else 0
+            
+        else:
+            pps = 0
+            
+        return pps
     
-         
-    
+
+        
