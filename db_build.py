@@ -7,17 +7,6 @@ import pandas as pd
 
 from utils.utilities import fetch_data, validate_data
 
-def build_table(conn, table_name, table_data):
-    
-    table_data.to_sql(
-        name=table_name, 
-        con=conn, 
-        index=False, 
-        if_exists='replace',
-    )
-    
-    conn.commit()
-
 _links = (
     'https://finance.yahoo.com/quote/FB/history?period1=1337299200&period2=1609632000&interval=1d&filter=history&frequency=1d&includeAdjustedClose=true',
     'https://finance.yahoo.com/quote/AMZN/history?period1=1167782400&period2=1609632000&interval=1d&filter=history&frequency=1d&includeAdjustedClose=true',
@@ -30,8 +19,38 @@ PATH = './data/'
 CUTOFF = datetime.datetime(year=2012, month=7, day=9)
 DB_NAME = 'HistoricalPriceData.db'
 
-################################################################################
+ 
+    
+def build_table(conn, table_name, table_data):
+    
+    table_data.to_sql(
+        name=table_name, 
+        con=conn, 
+        index=False, 
+        if_exists='replace',
+    )
+    
+    conn.commit()
+    
 
+    
+def test():
+    
+    data = fetch_data(
+        os.path.join(
+            PATH, 
+            DB_NAME,
+        )
+    )
+    
+    try:
+        validate_data(data)
+        print('Valid')
+    except Exception as e:
+        print('ERROR:', e)
+
+
+        
 def main(): 
     
     data = {}
@@ -80,23 +99,8 @@ def main():
             
     connection.close()
     
-def test():
-    
-    data = fetch_data(
-        os.path.join(
-            PATH, 
-            DB_NAME,
-        )
-    )
-    
-    try:
-        validate_data(data)
-        print('Valid')
-    except Exception as e:
-        print('ERROR:', e)
 
-################################################################################
-
+    
 if __name__ == '__main__':
     main()
     test()
