@@ -12,7 +12,7 @@ This project tests a continuous stock trading environment for reinforcement lear
  - `TD3_TradingEnv9_main_33` parameters:
    - Not tested yet
    - Initialization: `buffer_size` = 1,000,000; `batch_size` = 100; `gamma` = 0.99; `tau` = 0.00001; `policy_freq` = 2; `lr` = 0.001; `policy_noise` = 0.2; `noise_clip` = 0.5; `expl_noise` = 0.15; `starting_step` = 20,000; `init_thresh` = 5.0;
-   - Robust:  . ; `lr` = 0.0001; `reg` = 0.0001; `starting_step` = 10,000;
+   - Robust:  . ; `lr` = 0.001; `reg` = 0.0001; `starting_step` = 10,000;
  
    
     
