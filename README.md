@@ -10,7 +10,7 @@ This project tests a continuous stock trading environment for reinforcement lear
  - `TD3_TradingEnv9_main_86` parameters:
    - Initialization:  . ; `init_thresh` = 2.0;
    - Robust:  . ; `lr` = 0.0005; `reg` = 0.001; `starting_step` = 10,000;
- - `TD3_TradingEnv9_main_33` parameters:
+ - `TD3_TradingEnv9_main_70` parameters:
    - Initialization:  . ; `init_thresh` = 5.0;
    - Robust:  . ; `reg` = 0.0001; `starting_step` = 10,000;
  
