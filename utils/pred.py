@@ -25,7 +25,7 @@ class Network(nn.Module):
         X = self.layer_3(X)
         
         return X
-        
+    
     
     
 class Predictor:
@@ -105,4 +105,50 @@ class Predictor:
         self.model.load_state_dict(torch.load(f'{directory}/{filename}_predictor.pth'))
         
 
+
+class NetworkDropout(nn.Module):
     
+    def __init__(self, input_dim, output_dim):
+        
+        super(NetworkDropout, self).__init__()
+        
+        h1, h2 = 200, 100
+        prob = 0.1
+        
+        self.layer_1 = nn.Linear(input_dim, h1) 
+        self.dropout_1 = nn.Dropout(prob)
+        self.layer_2 = nn.Linear(h1, h2) 
+        self.dropout_2 = nn.Dropout(prob)
+        self.layer_3 = nn.Linear(h2, output_dim)
+        
+    def forward(self, X):
+        
+        X = F.relu(self.layer_1(X))
+        X = self.dropout_1(X)
+        
+        X = F.relu(self.layer_2(X))
+        X = self.dropout_2(X)
+        
+        X = self.layer_3(X)
+        
+        return X
+    
+    
+    
+class DropoutPredictor(Predictor):
+    
+    def __init__(self, input_dim, output_dim, eta=1e-3, alpha=0.0):
+        
+        super(DropoutPredictor, self).__init__(
+            input_dim, output_dim, eta=1e-3, alpha=0.0,
+        )
+                
+        self.model = NetworkDropout(input_dim, output_dim)
+        self.optimizer = torch.optim.Adam(
+            self.model.parameters(), 
+            lr=eta,
+            weight_decay=alpha,
+        )
+        
+        
+          

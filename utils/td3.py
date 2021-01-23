@@ -256,7 +256,7 @@ class ActorDropout(nn.Module):
         super(ActorDropout, self).__init__()
         
         h1, h2 = 400, 300
-        prob = 0.01
+        prob = 0.1
         
         self.layer_1 = nn.Linear(state_dim, h1) 
         self.dropout_1 = nn.Dropout(prob)
@@ -270,13 +270,15 @@ class ActorDropout(nn.Module):
                         
         X = F.relu(self.layer_1(state))
         X = self.dropout_1(X)
+        
         X = F.relu(self.layer_2(X))
         X = self.dropout_2(X)
+        
         X = self.pst(self.layer_3(X)) 
         
         return X 
 
-
+        
 
 class CriticDropout(nn.Module):
 
@@ -285,7 +287,7 @@ class CriticDropout(nn.Module):
         super(CriticDropout, self).__init__()
         
         h1, h2 = 400, 300
-        prob = 0.01
+        prob = 0.1
         
         self.layer_1 = nn.Linear(state_dim + action_dim, h1)
         self.dropout_1 = nn.Dropout(prob)
@@ -299,8 +301,10 @@ class CriticDropout(nn.Module):
 
         X = F.relu(self.layer_1(state_action))
         X = self.dropout_1(X)
+        
         X = F.relu(self.layer_2(X))
         X = self.dropout_2(X)
+    
         X = self.layer_3(X)
 
         return X
@@ -309,10 +313,10 @@ class CriticDropout(nn.Module):
     
 class DropoutAgent(Agent):
     
-    def __init__(self, state_dim, action_dim, max_action, mem_size=1e6, eta=1e-3):
+    def __init__(self, state_dim, action_dim, max_action, mem_size=1e6, eta=1e-3, alpha=0.0):
         
-        super(RobustAgent, self).__init__(
-            state_dim, action_dim, max_action, mem_size, eta,
+        super(DropoutAgent, self).__init__(
+            state_dim, action_dim, max_action, mem_size=1e6, eta=1e-3, alpha=0.0,
         )
         
         self.actor = ActorDropout(state_dim, action_dim).to(DEVICE)

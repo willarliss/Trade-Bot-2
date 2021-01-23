@@ -3,6 +3,7 @@ import pandas as pd
 import sqlite3 as sql
 import matplotlib.pyplot as plt
 from IPython.display import clear_output
+from sklearn.preprocessing import minmax_scale
 
 
 
@@ -94,3 +95,15 @@ def validate_data(dataframes):
         
     
      
+def get_indices(n_episodes, min_, max_):
+    
+    x = np.random.randn(int(n_episodes))
+    x = minmax_scale(
+        np.abs(x)*-1, 
+        (min_, max_, ),
+    )
+    
+    return x.astype(int)
+
+
+    
