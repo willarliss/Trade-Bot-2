@@ -13,6 +13,11 @@ This project tests a continuous stock trading environment for reinforcement lear
  - `TD3_TradingEnv9_main_70` parameters:
    - Initialization:  . ; `init_thresh` = 5.0;
    - Robust:  . ; `reg` = 0.0001; `starting_step` = 10,000;
+
+Changes:
+ - `train__tts.ipynb` implements a new process for training and testing in which training is done on short periods of stock history sampled from a distribution skewed toward the start date of testing
+ - `TradingEnvNorm` Introduces normalization into the tts training process
+   - Creates a new problem of "data drift"
  
    
     
