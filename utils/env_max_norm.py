@@ -11,13 +11,13 @@ from utils.portfolio import Portfolio
 
 
 
-class TradingEnvNorm(gym.Env):
+class TradingEnvMaxNorm(gym.Env):
     
     metadata = {'render.modes': ['human']}
     
-    def __init__(self, stock_data, balance_init=1e6, fee=1e-3, norms=None):
+    def __init__(self, stock_data, balance_init=1e6, fee=1e-3):
         
-        super(TradingEnvNorm, self).__init__()
+        super(TradingEnvMaxNorm, self).__init__()
 
         self.fee = fee
         self.balance_init = balance_init
@@ -36,9 +36,7 @@ class TradingEnvNorm(gym.Env):
     
         self.stocks = stock_data.copy()
         self.validate_data(self.stocks)
-
-        self.normalizers = norms
-            
+        
         self.positions = ( *[t for t in self.stocks.keys()], '_out', )
         self.n_obs = len(self.stocks[self.positions[0]])
         self.n_stocks = len(self.stocks)
@@ -66,10 +64,9 @@ class TradingEnvNorm(gym.Env):
                 self.current_step,
                 ['close', 'volume', 'ma_30', 'ma_5', 'volatil', 'diff', 'diff_ma_5'],
             ]
-                        
-            # Normalize observation
-            obs = list((obs.values-self.normalizers[ticker]['shift']) / self.normalizers[ticker]['scale'])
-                                                         
+                     
+            obs = list(obs/self.scalers[ticker])
+            
             obs.append(self.agent_portfolio.positions_norm[ticker])
             obs.append(self._price_per_share(
                 self.net_worth[-1], 
@@ -79,9 +76,10 @@ class TradingEnvNorm(gym.Env):
             ))
             
             full_observation.append(obs)
+            self._update_scalers(self.scalers[ticker], obs)
             
-        meta =  np.zeros(self.observation_space.shape[1])    
-        
+        meta =  np.zeros(self.observation_space.shape[1])
+    
         meta[0] = (self.net_worth[-1] - self.balance_init) / self.balance_init # Profit
         meta[1] = (self.net_worth[-1] - self.balance) / self.balance_init # Invested
         meta[2] = self.net_worth[-1] / self.balance_init # Net worth
@@ -105,7 +103,7 @@ class TradingEnvNorm(gym.Env):
         
         self.balance = self.agent_portfolio.balance
         self.shares_held = sum(self.agent_portfolio.positions_full.values())
-
+            
     def _reward_fn(self):
         
         penalty = (1 / np.sqrt(self.n_stocks+1)) + 1
@@ -136,7 +134,7 @@ class TradingEnvNorm(gym.Env):
         # Information
         info = {}
         
-        return obs, reward, done, info    
+        return obs, reward, done, info   
     
     def reset(self):
         
@@ -150,12 +148,14 @@ class TradingEnvNorm(gym.Env):
         self.net_worth_long = [self.balance]
         self.shares_held = 0
         
+        self.scalers = self._configure_scalers_init(self.stocks)
+
         return self._next_observation()
         
     def render(self, mode='human', figsize=(16,10), indicator='close'):
         
         clear_output(wait=True)
-                
+        
         fig = plt.figure(figsize=figsize)
         gs = gridspec.GridSpec(2,2)
 
@@ -164,16 +164,13 @@ class TradingEnvNorm(gym.Env):
         ax3 = fig.add_subplot(gs[1,1])
 
         for ticker, df in self.stocks.items():
-                        
+            
             date_range = df.loc[1:self.current_step, 'date']
-            stock_dta = (
-                (df.drop('date', axis=1) - self.normalizers[ticker]['shift'])
-                / self.normalizers[ticker]['scale']
-                ).loc[1:self.current_step, indicator]
-                        
+            stock_dta = df.loc[1:self.current_step, indicator]
+            
             ax1.plot(
                 date_range, 
-                stock_dta, 
+                stock_dta/df[indicator].std(), 
                 label=f'{ticker.upper()} ({indicator})',
             )
                     
@@ -194,37 +191,6 @@ class TradingEnvNorm(gym.Env):
         ax3.legend(loc='upper left')
         
         plt.show()
-    
-    @property
-    def normalizers(self):
-        
-        return self._normalizers
-    
-    @normalizers.setter
-    def normalizers(self, norms):
-        
-        if norms is None:
-            
-            self._normalizers = {}
-
-            for ticker, df in self.stocks.items():
-                self._normalizers[ticker] = {
-                    'scale': df.drop('date', axis=1).std().values,
-                    'shift': df.drop('date', axis=1).loc[0].values,
-                }
-                
-        elif isinstance(norms, dict):
-            
-            assert set(norms.keys()) == set(self.stocks.keys())
-            assert all(
-                set(item.keys()) == {'scale', 'shift'}
-                for item in norms.values()
-            )
-            
-            self._normalizers = norms
-        
-        else:
-            raise ValueError
 
     @staticmethod
     def format_action(positions, quantities):
@@ -243,7 +209,33 @@ class TradingEnvNorm(gym.Env):
         assert isinstance(data, dict)
         
         validate_data(data)
+        
+    @staticmethod
+    def _update_scalers(scalers, obs):
+
+        scalers[:] = [
+            max(scalers[i], obs[i]) for i in np.arange(len(scalers))
+        ]
     
+    @staticmethod
+    def _configure_scalers_init(stocks, start=0):
+        
+        i = 0 + start
+        scalers_full = {}
+        
+        for ticker, df in stocks.items():
+            # Scalers are the first observation values
+            scalers = df.drop('date', axis=1).values[i]
+            
+            # If there are zeros in the scalers, use the next observation
+            while 0. in scalers:
+                i += 1
+                scalers[scalers==0] = df.drop('date', axis=1).values[i][scalers==0]
+            
+            scalers_full[ticker] = scalers
+            
+        return scalers_full
+
     @staticmethod
     def _price_per_share(net_worth, balance, shares, portion):
         

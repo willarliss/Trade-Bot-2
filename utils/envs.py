@@ -11,13 +11,13 @@ from utils.portfolio import Portfolio
 
 
 
-class BaseTradingEnvironment(gym.Env):
+class TradingEnvBase(gym.Env):
     
     metadata = {'render.modes': ['human']}
     
     def __init__(self, stock_data, balance_init=1e6, fee=1e-3):
         
-        super(BaseTradingEnvironment, self).__init__()
+        super(TradingEnvBase, self).__init__()
 
         self.fee = fee
         self.balance_init = balance_init
@@ -202,7 +202,7 @@ class BaseTradingEnvironment(gym.Env):
 
     
         
-class TradingEnv1(BaseTradingEnvironment):
+class TradingEnv1(TradingEnvBase):
     
     """Base environment with no modifications"""
     
@@ -210,7 +210,7 @@ class TradingEnv1(BaseTradingEnvironment):
     
     
 
-class TradingEnv2(BaseTradingEnvironment):
+class TradingEnv2(TradingEnvBase):
     
     """Modified reward function is long-term profit instead of immediate profit. BAD"""
     
@@ -239,7 +239,7 @@ class TradingEnv2(BaseTradingEnvironment):
     
     
     
-class TradingEnv3(BaseTradingEnvironment):
+class TradingEnv3(TradingEnvBase):
     
     """Modified observation space includes metadata about portfolio. BAD"""
     
@@ -280,7 +280,7 @@ class TradingEnv3(BaseTradingEnvironment):
 
     
 
-class TradingEnv4(BaseTradingEnvironment):
+class TradingEnv4(TradingEnvBase):
     
     """Modified reward function includes penalty for having no investments
     and observation space includes meta data"""
@@ -412,7 +412,7 @@ class TradingEnv6(TradingEnv4):
     
     
   
-class TradingEnv7(BaseTradingEnvironment):
+class TradingEnv7(TradingEnvBase):
     
     """Modified reward function includes penalty for having no investments
     and observation space includes meta data"""
@@ -537,7 +537,7 @@ class TradingEnv8(TradingEnv7):
          
         
         
-class TradingEnv9(BaseTradingEnvironment):
+class TradingEnv9(TradingEnvBase):
     
     """Modified reward function and observation space. Fixed scalers"""
     
